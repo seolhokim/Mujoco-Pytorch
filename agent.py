@@ -6,8 +6,7 @@ import torch.nn as nn
 import torch.optim as optim
 
 class PPO(nn.Module):
-    def __init__(self,state_dim,action_dim,hidden_dim = 64, learning_rate = 3e-4,entropy_coef = 1e-2,critic_coef =0.5,\
-                gamma = 0.99, lmbda =0.95,eps_clip= 0.2,K_epoch = 10,minibatch_size = 64):
+    def __init__(self,state_dim,action_dim,hidden_dim = 64, learning_rate = 3e-4,entropy_coef = 1e-2,critic_coef =0.5, gamma = 0.99, lmbda =0.95,eps_clip= 0.2,K_epoch = 10,minibatch_size = 64,device = 'cpu'):
         super(PPO,self).__init__()
         
         self.entropy_coef = entropy_coef
@@ -24,7 +23,7 @@ class PPO(nn.Module):
         self.critic = Critic(state_dim,hidden_dim)
         
         self.optimizer = optim.Adam(self.parameters(), lr=learning_rate)
-        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        self.device = device
     def pi(self,x):
         mu,sigma = self.actor(x)
         return mu,sigma
@@ -73,9 +72,9 @@ class PPO(nn.Module):
                 value_loss_clipped = (old_value_clipped - return_.detach().float()).pow(2)
                 
                 critic_loss = 0.5 * torch.max(value_loss,value_loss_clipped).mean()
-                
-                writer.add_scalar("loss/actor_loss", actor_loss.item(), n_epi)
-                writer.add_scalar("loss/critic_loss", critic_loss.item(), n_epi)
+                if writer != None:
+                    writer.add_scalar("loss/actor_loss", actor_loss.item(), n_epi)
+                    writer.add_scalar("loss/critic_loss", critic_loss.item(), n_epi)
                 
                 loss = actor_loss + self.critic_coef * critic_loss
                 self.optimizer.zero_grad()
