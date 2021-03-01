@@ -60,11 +60,10 @@ if args.tensorboard:
     writer = SummaryWriter()
 else:
     writer = None
-global_step = 0
 
 score_lst = []
 
-for n_epi in range(10000):
+for n_epi in range(args.epochs):
     score = 0.0
     s = (env.reset())
     s = np.clip((s - state_rms.mean) / (state_rms.var ** 0.5 + 1e-8), -5, 5)
