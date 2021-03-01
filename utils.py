@@ -1,5 +1,5 @@
 import numpy as np
-
+import torch
 class RunningMeanStd(object):
     def __init__(self, epsilon=1e-4, shape=()):
         self.mean = np.zeros(shape, 'float64')
@@ -33,11 +33,11 @@ def update_mean_var_count_from_moments(mean, var, count, batch_mean, batch_var, 
 class Rollouts(object):
     def __init__(self):
         self.rollouts = []
-    def put_data(self,transition):
+    def append(self,transition):
         self.rollouts.append(transition)
-    def make_batch(self):
+    def make_batch(self,state_rms,device):
         s_lst, a_lst, r_lst, s_prime_lst, prob_a_lst, done_lst = [], [], [], [], [], []
-        for transition in self.data:
+        for transition in self.rollouts:
             s, a, r, s_prime, prob_a, done = transition
             
             s_lst.append(s)
