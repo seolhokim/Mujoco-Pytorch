@@ -1,4 +1,6 @@
 import gym
+import numpy as np
+
 from utils import RunningMeanStd
 from agent import PPO
 
@@ -14,7 +16,7 @@ lmbda         = 0.95
 eps_clip      = 0.2
 K_epoch       = 10
 T_horizon     = 2048
-hidden_space  = 64
+hidden_dim  = 64
 minibatch_size = 64
 
 env = gym.make("Hopper-v2")
@@ -22,10 +24,11 @@ action_space = env.action_space.shape[0]
 state_space = env.observation_space.shape[0]
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 if torch.cuda.is_available():
-    agent = PPO(state_space,action_space,hidden_space, learning_rate,entropy_coef,critic_coef,gamma,lmbda,eps_clip,\
+    agent = PPO(state_space,action_space,hidden_dim, learning_rate,entropy_coef,critic_coef,gamma,lmbda,eps_clip,\
                K_epoch, minibatch_size).cuda()
 else:
-    agent = PPO(state_space,action_space)
+    agent = PPO(state_space,action_space,hidden_dim, learning_rate,entropy_coef,critic_coef,gamma,lmbda,eps_clip,\
+               K_epoch, minibatch_size)
 state_rms = RunningMeanStd(state_space)
 
 writer = SummaryWriter()
@@ -59,15 +62,13 @@ for n_epi in range(10000):
             s = np.clip((s - state_rms.mean) / (state_rms.var ** 0.5 + 1e-8), -5, 5)
             score_lst.append(score)
             writer.add_scalar("score", score, n_epi)
-            if score > max_score:
-                #torch.save(agent.state_dict(),'./model_weights/agent_'+str(int(score))+"points")
-                max_score = score
             score = 0
         else:
             s = s_prime
             
-    agent.train_net(n_epi)
+    agent.train_net(n_epi,state_rms,writer)
     
     if n_epi%print_interval==0 and n_epi!=0:
         print("# of episode :{}, avg score : {:.1f}".format(n_epi, sum(score_lst)/len(score_lst)))
         score_lst = []
+##torch.save(agent.state_dict(),'./model_weights/agent_'+str(int(score))+"points")
