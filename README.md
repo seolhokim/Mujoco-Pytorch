@@ -5,9 +5,10 @@
 <left><img src="https://github.com/seolhokim/Mujoco-Pytorch/blob/main/assets/swimmer.gif" width="250" height="200"></left>
 
 ## Performance
+
 ### PPO
 
-<left><img src="https://github.com/seolhokim/Mujoco-Pytorch/blob/main/assets/ppo_in_mujoco.PNG" width="500" height="500"></left>
+<left><img src="https://github.com/seolhokim/Mujoco-Pytorch/blob/main/assets/ppo_in_mujoco.PNG"></left>
 
 #### hopper
 
