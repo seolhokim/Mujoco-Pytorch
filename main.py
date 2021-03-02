@@ -33,8 +33,8 @@ parser.add_argument("--use_cuda", type=bool, default = True, help = 'cuda usage(
 args = parser.parse_args()
 
 
-env_lst = ['Ant-v2','HalfCheetah-v2','Hopper-v2','Humanoid-v2','HumanoidStandup-v2',\
-          'InvertedDoublePendulum-v2', 'InvertedPendulum-v2']
+env_lst = ['Ant-v2','HalfCheetah-v2', 'Hopper-v2', 'Humanoid-v2', 'HumanoidStandup-v2',\
+          'InvertedDoublePendulum-v2', 'InvertedPendulum-v2', 'Walker2d-v2', 'Swimmer-v2', 'Reacher-v2']
 
 assert args.env_name in env_lst
 
