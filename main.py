@@ -63,10 +63,10 @@ else:
 
 score_lst = []
 
+score = 0.0
+s = (env.reset())
+s = np.clip((s - state_rms.mean) / (state_rms.var ** 0.5 + 1e-8), -5, 5)
 for n_epi in range(args.epochs):
-    score = 0.0
-    s = (env.reset())
-    s = np.clip((s - state_rms.mean) / (state_rms.var ** 0.5 + 1e-8), -5, 5)
     for t in range(args.T_horizon):
         global_step += 1 
         if args.render:    
