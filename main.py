@@ -1,11 +1,15 @@
+
+
 import gym
 import numpy as np
 import argparse
+import os
 
-from utils import RunningMeanStd
 from agent import PPO
-
+from environment import NormalizedGymEnv
 import torch
+
+os.makedirs('./model_weights', exist_ok=True)
 
 parser = argparse.ArgumentParser('parameters')
 parser.add_argument("--env_name", type=str, default = 'Hopper-v2', help = "'Ant-v2','HalfCheetah-v2','Hopper-v2','Humanoid-v2','HumanoidStandup-v2',\
@@ -38,7 +42,7 @@ env_lst = ['Ant-v2','HalfCheetah-v2', 'Hopper-v2', 'Humanoid-v2', 'HumanoidStand
 
 assert args.env_name in env_lst
 
-env = gym.make(args.env_name)
+env = NormalizedGymEnv(args.env_name)
 action_space = env.action_space.shape[0]
 state_space = env.observation_space.shape[0]
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -53,7 +57,7 @@ else:
 
 if args.load != 'no':
     agent.load_state_dict(torch.load("./model_weights/"+args.load))
-state_rms = RunningMeanStd(state_space)
+#####state_rms = RunningMeanStd(state_space)
 
 if args.tensorboard:
     from torch.utils.tensorboard import SummaryWriter
@@ -65,10 +69,8 @@ score_lst = []
 
 score = 0.0
 s = (env.reset())
-s = np.clip((s - state_rms.mean) / (state_rms.var ** 0.5 + 1e-8), -5, 5)
 for n_epi in range(args.epochs):
     for t in range(args.T_horizon):
-        global_step += 1 
         if args.render:    
             env.render()
         mu,sigma = agent.pi(torch.from_numpy(s).float().to(device))
@@ -77,13 +79,11 @@ for n_epi in range(args.epochs):
         action = dist.sample()
         log_prob = dist.log_prob(action).sum(-1,keepdim = True)
         s_prime, r, done, info = env.step(action.unsqueeze(0).cpu().numpy())
-        s_prime = np.clip((s_prime - state_rms.mean) / (state_rms.var ** 0.5 + 1e-8), -5, 5)
         agent.put_data((s, action, r/10.0, s_prime, \
                         log_prob.detach().cpu().numpy(), done))
         score += r
         if done:
             s = (env.reset())
-            s = np.clip((s - state_rms.mean) / (state_rms.var ** 0.5 + 1e-8), -5, 5)
             score_lst.append(score)
             if args.tensorboard:
                 writer.add_scalar("score", score, n_epi)
@@ -91,7 +91,7 @@ for n_epi in range(args.epochs):
         else:
             s = s_prime
             
-    agent.train_net(n_epi,state_rms,writer)
+    agent.train_net(n_epi,writer)
     
     if n_epi%args.print_interval==0 and n_epi!=0:
         print("# of episode :{}, avg score : {:.1f}".format(n_epi, sum(score_lst)/len(score_lst)))

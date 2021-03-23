@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
@@ -8,7 +9,6 @@ class Actor(nn.Module):
         self.fc2   = nn.Linear(hidden_dim,hidden_dim)
 
         self.pi = nn.Linear(hidden_dim,action_dim)
-        self.sigma = nn.Linear(hidden_dim,action_dim)
         
         for layer in self.modules():
             if isinstance(layer, nn.Linear):
@@ -18,9 +18,10 @@ class Actor(nn.Module):
     def forward(self,x):
         x = F.tanh(self.fc1(x))
         x = F.tanh(self.fc2(x))
-        mu =  F.tanh(self.pi(x))
-        sigma = F.softplus(self.sigma(x)) +1e-3
-        return mu,sigma
+        mu = self.pi(x)
+        logstd = torch.zeros_like(mu)
+        std = torch.exp(logstd)
+        return mu,std
 
 class Critic(nn.Module):
     def __init__(self,state_dim,hidden_dim):
