@@ -16,6 +16,7 @@ class PPO(nn.Module):
         self.eps_clip = eps_clip
         self.K_epoch = K_epoch
         self.minibatch_size = minibatch_size
+        self.max_grad_norm = 0.5
         
         self.data = Rollouts()
         
@@ -80,9 +81,11 @@ class PPO(nn.Module):
                 
                 self.actor_optimizer.zero_grad()
                 actor_loss.backward()
+                nn.utils.clip_grad_norm_(self.actor.parameters(), self.max_grad_norm)
                 self.actor_optimizer.step()
                 
                 self.critic_optimizer.zero_grad()
                 critic_loss.backward()
+                nn.utils.clip_grad_norm_(self.critic.parameters(), self.max_grad_norm)
                 self.critic_optimizer.step()
                 

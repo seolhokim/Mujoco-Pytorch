@@ -25,7 +25,7 @@ parser.add_argument('--learning_rate', type=float, default=3e-4, help='learning 
 parser.add_argument('--gamma', type=float, default=0.99, help='gamma (default : 0.99)')
 parser.add_argument('--lmbda', type=float, default=0.95, help='lambda using GAE(default : 0.95)')
 parser.add_argument('--eps_clip', type=float, default=0.2, help='actor and critic clip range (default : 0.2)')
-parser.add_argument('--K_epoch', type=int, default=64, help='train epoch number(default : 10)')
+parser.add_argument('--K_epoch', type=int, default=10, help='train epoch number(default : 10)')
 parser.add_argument('--T_horizon', type=int, default=2048, help='one generation before training(default : 2048)')
 parser.add_argument('--hidden_dim', type=int, default=64, help='actor and critic network hidden dimension(default : 64)')
 parser.add_argument('--minibatch_size', type=int, default=64, help='minibatch size(default : 64)')
@@ -42,7 +42,12 @@ env_lst = ['Ant-v2','HalfCheetah-v2', 'Hopper-v2', 'Humanoid-v2', 'HumanoidStand
 
 assert args.env_name in env_lst
 
-env = NormalizedGymEnv(args.env_name)
+env = NormalizedGymEnv(args.env_name,normalize_obs=True)
+'''
+#for pybullet envs
+import pybullet_envs
+env = NormalizedGymEnv("HopperBulletEnv-v0",normalize_obs=True)
+'''
 action_space = env.action_space.shape[0]
 state_space = env.observation_space.shape[0]
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -57,7 +62,6 @@ else:
 
 if args.load != 'no':
     agent.load_state_dict(torch.load("./model_weights/"+args.load))
-#####state_rms = RunningMeanStd(state_space)
 
 if args.tensorboard:
     from torch.utils.tensorboard import SummaryWriter
@@ -74,11 +78,11 @@ for n_epi in range(args.epochs):
         if args.render:    
             env.render()
         mu,sigma = agent.pi(torch.from_numpy(s).float().to(device))
-        dist = torch.distributions.Normal(mu,sigma)
+        dist = torch.distributions.Normal(mu,sigma[0])
 
         action = dist.sample()
         log_prob = dist.log_prob(action).sum(-1,keepdim = True)
-        s_prime, r, done, info = env.step(action.unsqueeze(0).cpu().numpy())
+        s_prime, r, done, info = env.step(action.cpu().numpy())
         agent.put_data((s, action, r/10.0, s_prime, \
                         log_prob.detach().cpu().numpy(), done))
         score += r
