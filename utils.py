@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+
 def make_transition(state,action,reward,next_state,done,log_prob=None):
     transition = {}
     transition['state'] = state
@@ -36,20 +37,21 @@ class ReplayBuffer():
             self.data['log_prob'][idx] = transition['log_prob']
         
         self.data_idx += 1
-    def sample(self, batch_size):
-        return self.data
-        sample_num = min(self.max_size, self.data_idx)
-        rand_idx = np.random.choice(sample_num, batch_size,replace=False)
-        
-        sampled_data = {}
-        sampled_data['state'] = self.data['state'][rand_idx]
-        sampled_data['action'] = self.data['action'][rand_idx]
-        sampled_data['reward'] = self.data['reward'][rand_idx]
-        sampled_data['next_state'] = self.data['next_state'][rand_idx]
-        sampled_data['done'] = self.data['done'][rand_idx]
-        if self.action_prob_exist :
-            sampled_data['log_prob'] = self.data['log_prob'][rand_idx]
-        return sampled_data
+    def sample(self, batch_size, shuffle):
+        if shuffle :
+            sample_num = min(self.max_size, self.data_idx)
+            rand_idx = np.random.choice(sample_num, batch_size,replace=False)
+            sampled_data = {}
+            sampled_data['state'] = self.data['state'][rand_idx]
+            sampled_data['action'] = self.data['action'][rand_idx]
+            sampled_data['reward'] = self.data['reward'][rand_idx]
+            sampled_data['next_state'] = self.data['next_state'][rand_idx]
+            sampled_data['done'] = self.data['done'][rand_idx]
+            if self.action_prob_exist :
+                sampled_data['log_prob'] = self.data['log_prob'][rand_idx]
+            return sampled_data
+        else:
+            return self.data #[:batch_size]
     def size(self):
         return self.data_idx
     def choose_mini_batch(self, mini_batch_size, states, actions, rewards, next_states, done_mask, old_log_prob, advantages, returns, old_value):
