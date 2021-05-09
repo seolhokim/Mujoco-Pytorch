@@ -38,9 +38,9 @@ class PPO(nn.Module):
         self.data.append(transition)
         
     def train_net(self,n_epi,writer):
-        s_, a_, r_, s_prime_, done_mask_, old_log_prob_ = self.data.make_batch(self.device)
-        old_value_ = self.v(s_).detach()
-        td_target = r_ + self.gamma * self.v(s_prime_) * done_mask_
+        state_, action_, reward_, next_state_, done_mask_, old_log_prob_ = self.data.make_batch(self.device)
+        old_value_ = self.v(next_state_).detach()
+        td_target = reward_ + self.gamma * self.v(next_state_) * done_mask_
         delta = td_target - old_value_
         delta = delta.detach().cpu().numpy()
         advantage_lst = []
@@ -55,13 +55,14 @@ class PPO(nn.Module):
         returns_ = advantage_ + old_value_
         advantage_ = (advantage_ - advantage_.mean())/(advantage_.std()+1e-3)
         for i in range(self.K_epoch):
-            for s,a,r,s_prime,done_mask,old_log_prob,advantage,return_,old_value in self.data.choose_mini_batch(\
-                                                                              self.minibatch_size ,s_, a_, r_, s_prime_, done_mask_, old_log_prob_,advantage_,returns_,old_value_): 
-                curr_mu,curr_sigma = self.pi(s)
-                value = self.v(s).float()
+            for state,action,reward,next_state,done_mask,old_log_prob,advantage,return_,old_value \
+            in self.data.choose_mini_batch(self.minibatch_size ,state_, action_, reward_, next_state_, done_mask_, \
+                                           old_log_prob_,advantage_,returns_,old_value_): 
+                curr_mu,curr_sigma = self.pi(state)
+                value = self.v(state).float()
                 curr_dist = torch.distributions.Normal(curr_mu,curr_sigma)
                 entropy = curr_dist.entropy() * self.entropy_coef
-                curr_log_prob = curr_dist.log_prob(a).sum(1,keepdim = True)
+                curr_log_prob = curr_dist.log_prob(action).sum(1,keepdim = True)
                 
                 ratio = torch.exp(curr_log_prob - old_log_prob.detach())
                 

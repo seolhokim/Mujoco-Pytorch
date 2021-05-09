@@ -72,28 +72,31 @@ else:
 score_lst = []
 
 score = 0.0
-s = (env.reset())
+state = (env.reset())
 for n_epi in range(args.epochs):
     for t in range(args.T_horizon):
         if args.render:    
             env.render()
-        mu,sigma = agent.pi(torch.from_numpy(s).float().to(device))
+        mu,sigma = agent.pi(torch.from_numpy(state).float().to(device))
         dist = torch.distributions.Normal(mu,sigma[0])
-
         action = dist.sample()
         log_prob = dist.log_prob(action).sum(-1,keepdim = True)
-        s_prime, r, done, info = env.step(action.cpu().numpy())
-        agent.put_data((s, action, r/10.0, s_prime, \
-                        log_prob.detach().cpu().numpy(), done))
-        score += r
+        next_state, reward, done, info = env.step(action.cpu().numpy())
+        agent.put_data((state,\
+                       action,\
+                       reward/10.0,\
+                       next_state,\
+                       log_prob.detach().cpu().numpy(),\
+                       done)) 
+        score += reward
         if done:
-            s = (env.reset())
+            state = (env.reset())
             score_lst.append(score)
             if args.tensorboard:
                 writer.add_scalar("score", score, n_epi)
             score = 0
         else:
-            s = s_prime
+            state = next_state
             
     agent.train_net(n_epi,writer)
     
