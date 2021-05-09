@@ -39,7 +39,7 @@ class PPO(nn.Module):
         
     def train_net(self,n_epi,writer):
         state_, action_, reward_, next_state_, done_mask_, old_log_prob_ = self.data.make_batch(self.device)
-        old_value_ = self.v(next_state_).detach()
+        old_value_ = self.v(state_).detach()
         td_target = reward_ + self.gamma * self.v(next_state_) * done_mask_
         delta = td_target - old_value_
         delta = delta.detach().cpu().numpy()
