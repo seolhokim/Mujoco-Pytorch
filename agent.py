@@ -1,12 +1,12 @@
 from network import Actor, Critic
-from utils import Rollouts
+from utils import ReplayBuffer
 
 import torch
 import torch.nn as nn
 import torch.optim as optim
 
 class PPO(nn.Module):
-    def __init__(self,state_dim,action_dim,hidden_dim = 64, learning_rate = 3e-4,entropy_coef = 1e-2,critic_coef =0.5, gamma = 0.99, lmbda =0.95,eps_clip= 0.2,K_epoch = 10,minibatch_size = 64,device = 'cpu'):
+    def __init__(self,state_dim,action_dim,hidden_dim = 64, learning_rate = 3e-4,entropy_coef = 1e-2,critic_coef =0.5, gamma = 0.99, lmbda =0.95,eps_clip= 0.2,K_epoch = 10,T_horizon = 2048, minibatch_size = 64,device = 'cpu'):
         super(PPO,self).__init__()
         
         self.entropy_coef = entropy_coef
@@ -17,8 +17,9 @@ class PPO(nn.Module):
         self.K_epoch = K_epoch
         self.minibatch_size = minibatch_size
         self.max_grad_norm = 0.5
+        self.T_horizon = T_horizon
         
-        self.data = Rollouts()
+        self.data = ReplayBuffer(action_prob_exist = True, max_size = T_horizon, state_dim = state_dim, num_action = action_dim)
         
         self.actor = Actor(state_dim,action_dim,hidden_dim)
         self.critic = Critic(state_dim,hidden_dim)
@@ -35,29 +36,38 @@ class PPO(nn.Module):
         return self.critic(x)
     
     def put_data(self,transition):
-        self.data.append(transition)
+        self.data.put_data(transition)
         
     def train_net(self,n_epi,writer):
-        state_, action_, reward_, next_state_, done_mask_, old_log_prob_ = self.data.make_batch(self.device)
-        old_value_ = self.v(state_).detach()
-        td_target = reward_ + self.gamma * self.v(next_state_) * done_mask_
-        delta = td_target - old_value_
+        data = self.data.sample(self.T_horizon)
+        states, actions, rewards, next_states, done_masks, old_log_probs = data['state'], data['action'], data['reward'], data['next_state'], data['done'], data['log_prob']
+        
+        states = torch.tensor(states).float()
+        actions = torch.tensor(actions).float()
+        rewards = torch.tensor(rewards).float()
+        next_states = torch.tensor(next_states).float()
+        done_masks = torch.tensor(done_masks).float()
+        old_log_probs = torch.tensor(old_log_probs).float()
+        
+        old_values = self.v(states).detach()
+        td_target = rewards + self.gamma * self.v(next_states) * done_masks
+        delta = td_target - old_values
         delta = delta.detach().cpu().numpy()
         advantage_lst = []
         advantage = 0.0
         for idx in reversed(range(len(delta))):
-            if done_mask_[idx] == 0:
+            if done_masks[idx] == 0:
                 advantage = 0.0
             advantage = self.gamma * self.lmbda * advantage + delta[idx][0]
             advantage_lst.append([advantage])
         advantage_lst.reverse()
-        advantage_ = torch.tensor(advantage_lst, dtype=torch.float).to(self.device)
-        returns_ = advantage_ + old_value_
-        advantage_ = (advantage_ - advantage_.mean())/(advantage_.std()+1e-3)
+        advantages = torch.tensor(advantage_lst, dtype=torch.float).to(self.device)
+        returns = advantages + old_values
+        advantages = (advantages - advantages.mean())/(advantages.std()+1e-3)
         for i in range(self.K_epoch):
             for state,action,reward,next_state,done_mask,old_log_prob,advantage,return_,old_value \
-            in self.data.choose_mini_batch(self.minibatch_size ,state_, action_, reward_, next_state_, done_mask_, \
-                                           old_log_prob_,advantage_,returns_,old_value_): 
+            in self.data.choose_mini_batch(self.minibatch_size, states, actions, rewards, next_states, done_masks, \
+                                           old_log_probs,advantages,returns,old_values): 
                 curr_mu,curr_sigma = self.pi(state)
                 value = self.v(state).float()
                 curr_dist = torch.distributions.Normal(curr_mu,curr_sigma)

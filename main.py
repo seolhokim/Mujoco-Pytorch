@@ -1,5 +1,3 @@
-
-
 import gym
 import numpy as np
 import argparse
@@ -7,8 +5,9 @@ import os
 
 from agent import PPO
 from environment import NormalizedGymEnv
-import torch
+from utils import make_transition
 
+import torch
 os.makedirs('./model_weights', exist_ok=True)
 
 parser = argparse.ArgumentParser('parameters')
@@ -82,12 +81,14 @@ for n_epi in range(args.epochs):
         action = dist.sample()
         log_prob = dist.log_prob(action).sum(-1,keepdim = True)
         next_state, reward, done, info = env.step(action.cpu().numpy())
-        agent.put_data((state,\
-                       action,\
-                       reward/10.0,\
-                       next_state,\
-                       log_prob.detach().cpu().numpy(),\
-                       done)) 
+        transition = make_transition(state,\
+                                     action,\
+                                     np.array([reward/10.0]),\
+                                     next_state,\
+                                     np.array([done]),\
+                                     log_prob.detach().cpu().numpy()\
+                                    )
+        agent.put_data(transition) 
         score += reward
         if done:
             state = (env.reset())
@@ -99,7 +100,6 @@ for n_epi in range(args.epochs):
             state = next_state
             
     agent.train_net(n_epi,writer)
-    
     if n_epi%args.print_interval==0 and n_epi!=0:
         print("# of episode :{}, avg score : {:.1f}".format(n_epi, sum(score_lst)/len(score_lst)))
         score_lst = []
