@@ -71,21 +71,19 @@ class PPO(nn.Module):
                 entropy = curr_dist.entropy() * self.entropy_coef
                 curr_log_prob = curr_dist.log_prob(action).sum(1,keepdim = True)
                 
-                ratio = torch.exp(curr_log_prob - old_log_prob.detach())
                 
+                
+                #policy clipping
+                ratio = torch.exp(curr_log_prob - old_log_prob.detach())
                 surr1 = ratio * advantage
                 surr2 = torch.clamp(ratio, 1-self.eps_clip, 1+self.eps_clip) * advantage
-                
                 actor_loss = (-torch.min(surr1, surr2) - entropy).mean() 
                 
+                #value clipping (PPO2 technic)
                 old_value_clipped = old_value + (value - old_value).clamp(-self.eps_clip,self.eps_clip)
                 value_loss = (value - return_.detach().float()).pow(2)
                 value_loss_clipped = (old_value_clipped - return_.detach().float()).pow(2)
-                
                 critic_loss = 0.5 * self.critic_coef * torch.max(value_loss,value_loss_clipped).mean()
-                if writer != None:
-                    writer.add_scalar("loss/actor_loss", actor_loss.item(), n_epi)
-                    writer.add_scalar("loss/critic_loss", critic_loss.item(), n_epi)
                 
                 self.actor_optimizer.zero_grad()
                 actor_loss.backward()
@@ -97,3 +95,6 @@ class PPO(nn.Module):
                 nn.utils.clip_grad_norm_(self.critic.parameters(), self.max_grad_norm)
                 self.critic_optimizer.step()
                 
+                if writer != None:
+                    writer.add_scalar("loss/actor_loss", actor_loss.item(), n_epi)
+                    writer.add_scalar("loss/critic_loss", critic_loss.item(), n_epi)
