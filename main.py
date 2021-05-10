@@ -17,7 +17,6 @@ parser.add_argument('--train', type=bool, default=True, help="(default: True)")
 parser.add_argument('--render', type=bool, default=False, help="(default: False)")
 parser.add_argument('--epochs', type=int, default=1000, help='number of epochs, (default: 1000)')
 
-
 parser.add_argument('--entropy_coef', type=float, default=1e-2, help='entropy coef (default : 0.01)')
 parser.add_argument('--critic_coef', type=float, default=0.5, help='critic coef (default : 0.5)')
 parser.add_argument('--learning_rate', type=float, default=3e-4, help='learning rate (default : 0.0003)')
@@ -52,12 +51,11 @@ state_space = env.observation_space.shape[0]
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 if args.use_cuda == False:
     device = 'cpu'
-if (torch.cuda.is_available()) and (args.use_cuda):
-    agent = PPO(state_space,action_space,args.hidden_dim, args.learning_rate,args.entropy_coef,args.critic_coef,args.gamma,args.lmbda,args.eps_clip,\
+agent = PPO(state_space,action_space,args.hidden_dim, args.learning_rate,args.entropy_coef,args.critic_coef,args.gamma,args.lmbda,args.eps_clip,\
                args.K_epoch, args.minibatch_size,device).cuda()
-else:
-    agent = PPO(state_space,action_space,args.hidden_dim, args.learning_rate,args.entropy_coef,args.critic_coef,args.gamma,args.lmbda,args.eps_clip,\
-               args.K_epoch, args.minibatch_size,device)
+
+if (torch.cuda.is_available()) and (args.use_cuda):
+    agent = agent.cuda()
 
 if args.load != 'no':
     agent.load_state_dict(torch.load("./model_weights/"+args.load))
