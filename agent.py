@@ -37,13 +37,10 @@ class PPO(nn.Module):
     def put_data(self,transition):
         self.data.put_data(transition)
         
-    def train_net(self,n_epi,writer):
-        data = self.data.sample(shuffle = False)
-        states, actions, rewards, next_states, done_masks, old_log_probs = convert_to_tensor(data['state'], data['action'], data['reward'], data['next_state'], data['done'], data['log_prob'])
-        
-        old_values = self.v(states).detach()
+    def get_gae(self, states, rewards, next_states, done_masks):
+        values = self.v(states).detach()
         td_target = rewards + self.gamma * self.v(next_states) * done_masks
-        delta = td_target - old_values
+        delta = td_target - values
         delta = delta.detach().cpu().numpy()
         advantage_lst = []
         advantage = 0.0
@@ -54,8 +51,16 @@ class PPO(nn.Module):
             advantage_lst.append([advantage])
         advantage_lst.reverse()
         advantages = torch.tensor(advantage_lst, dtype=torch.float).to(self.device)
+        return values, advantages
+    
+    def train_net(self,n_epi,writer):
+        data = self.data.sample(shuffle = False)
+        states, actions, rewards, next_states, done_masks, old_log_probs = convert_to_tensor(data['state'], data['action'], data['reward'], data['next_state'], data['done'], data['log_prob'])
+        
+        old_values, advantages = self.get_gae(states, rewards, next_states, done_masks)
         returns = advantages + old_values
         advantages = (advantages - advantages.mean())/(advantages.std()+1e-3)
+        
         for i in range(self.K_epoch):
             for state,action,old_log_prob,advantage,return_,old_value \
             in make_mini_batch(self.minibatch_size, states, actions, \
