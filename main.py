@@ -27,6 +27,7 @@ parser.add_argument('--K_epoch', type=int, default=10, help='train epoch number(
 parser.add_argument('--T_horizon', type=int, default=2048, help='one generation before training(default : 2048)')
 parser.add_argument('--hidden_dim', type=int, default=64, help='actor and critic network hidden dimension(default : 64)')
 parser.add_argument('--minibatch_size', type=int, default=64, help='minibatch size(default : 64)')
+parser.add_argument('--max_grad_norm', type=float, default=0.5, help='network gradient clipping (default : 0.5)')
 parser.add_argument('--tensorboard', type=bool, default=False, help='use_tensorboard, (default: False)')
 parser.add_argument("--load", type=str, default = 'no', help = 'load network name in ./model_weights')
 parser.add_argument("--save_interval", type=int, default = 100, help = 'save interval(default: 100)')
@@ -52,7 +53,7 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 if args.use_cuda == False:
     device = 'cpu'
 agent = PPO(state_space,action_space,args.hidden_dim, args.learning_rate,args.entropy_coef,args.critic_coef,args.gamma,args.lmbda,args.eps_clip,\
-               args.K_epoch, args.minibatch_size,device).cuda()
+               args.K_epoch, args.T_horizon, args.minibatch_size, args.max_grad_norm, device)
 
 if (torch.cuda.is_available()) and (args.use_cuda):
     agent = agent.cuda()

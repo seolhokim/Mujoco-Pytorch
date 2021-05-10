@@ -6,7 +6,7 @@ import torch.nn as nn
 import torch.optim as optim
 
 class PPO(nn.Module):
-    def __init__(self,state_dim,action_dim,hidden_dim = 64, learning_rate = 3e-4,entropy_coef = 1e-2,critic_coef =0.5, gamma = 0.99, lmbda =0.95,eps_clip= 0.2,K_epoch = 10,T_horizon = 2048, minibatch_size = 64,device = 'cpu'):
+    def __init__(self,state_dim,action_dim,hidden_dim = 64, learning_rate = 3e-4,entropy_coef = 1e-2,critic_coef =0.5, gamma = 0.99, lmbda =0.95,eps_clip= 0.2,K_epoch = 10,T_horizon = 2048, minibatch_size = 64, max_grad_norm = 0.5, device = 'cpu'):
         super(PPO,self).__init__()
         
         self.entropy_coef = entropy_coef
@@ -16,9 +16,8 @@ class PPO(nn.Module):
         self.eps_clip = eps_clip
         self.K_epoch = K_epoch
         self.minibatch_size = minibatch_size
-        self.max_grad_norm = 0.5
+        self.max_grad_norm = max_grad_norm
         self.T_horizon = T_horizon
-        
         self.data = ReplayBuffer(action_prob_exist = True, max_size = T_horizon, state_dim = state_dim, num_action = action_dim)
         
         self.actor = Actor(state_dim,action_dim,hidden_dim)

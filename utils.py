@@ -37,7 +37,7 @@ class ReplayBuffer():
             self.data['log_prob'][idx] = transition['log_prob']
         
         self.data_idx += 1
-    def sample(self, batch_size, shuffle):
+    def sample(self, shuffle, batch_size = None):
         if shuffle :
             sample_num = min(self.max_size, self.data_idx)
             rand_idx = np.random.choice(sample_num, batch_size,replace=False)
@@ -51,7 +51,7 @@ class ReplayBuffer():
                 sampled_data['log_prob'] = self.data['log_prob'][rand_idx]
             return sampled_data
         else:
-            return self.data #[:batch_size]
+            return self.data
     def size(self):
         return self.data_idx
     def choose_mini_batch(self, mini_batch_size, states, actions, rewards, next_states, done_mask, old_log_prob, advantages, returns, old_value):
