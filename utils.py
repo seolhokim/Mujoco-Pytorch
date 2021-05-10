@@ -11,6 +11,15 @@ def make_transition(state,action,reward,next_state,done,log_prob=None):
     transition['done'] = done
     return transition
 
+def make_mini_batch(*value):
+    mini_batch_size = value[0]
+    full_batch_size = len(value[1])
+    full_indices = np.arange(full_batch_size)
+    np.random.shuffle(full_indices)
+    for i in range(full_batch_size // mini_batch_size):
+        indices = full_indices[mini_batch_size*i : mini_batch_size*(i+1)]
+        yield [x[indices] for x in value[1:]]
+        
 class ReplayBuffer():
     def __init__(self, action_prob_exist, max_size, state_dim, num_action):
         self.max_size = max_size
@@ -54,11 +63,3 @@ class ReplayBuffer():
             return self.data
     def size(self):
         return self.data_idx
-    def choose_mini_batch(self, mini_batch_size, states, actions, rewards, next_states, done_mask, old_log_prob, advantages, returns, old_value):
-        full_batch_size = len(states)
-        full_indices = np.arange(full_batch_size)
-        np.random.shuffle(full_indices)
-        for i in range(full_batch_size // mini_batch_size):
-            indices = full_indices[mini_batch_size*i : mini_batch_size*(i+1)]
-            yield states[indices], actions[indices], rewards[indices], next_states[indices], done_mask[indices],\
-                  old_log_prob[indices], advantages[indices], returns[indices],old_value[indices]

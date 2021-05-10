@@ -1,5 +1,5 @@
 from network import Actor, Critic
-from utils import ReplayBuffer
+from utils import ReplayBuffer, make_mini_batch
 
 import torch
 import torch.nn as nn
@@ -64,8 +64,8 @@ class PPO(nn.Module):
         returns = advantages + old_values
         advantages = (advantages - advantages.mean())/(advantages.std()+1e-3)
         for i in range(self.K_epoch):
-            for state,action,reward,next_state,done_mask,old_log_prob,advantage,return_,old_value \
-            in self.data.choose_mini_batch(self.minibatch_size, states, actions, rewards, next_states, done_masks, \
+            for state,action,old_log_prob,advantage,return_,old_value \
+            in make_mini_batch(self.minibatch_size, states, actions, \
                                            old_log_probs,advantages,returns,old_values): 
                 curr_mu,curr_sigma = self.pi(state)
                 value = self.v(state).float()
