@@ -55,7 +55,7 @@ class PPO(nn.Module):
     
     def train_net(self,n_epi,writer):
         data = self.data.sample(shuffle = False)
-        states, actions, rewards, next_states, done_masks, old_log_probs = convert_to_tensor(data['state'], data['action'], data['reward'], data['next_state'], data['done'], data['log_prob'])
+        states, actions, rewards, next_states, done_masks, old_log_probs = convert_to_tensor(self.device, data['state'], data['action'], data['reward'], data['next_state'], data['done'], data['log_prob'])
         
         old_values, advantages = self.get_gae(states, rewards, next_states, done_masks)
         returns = advantages + old_values

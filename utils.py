@@ -21,7 +21,8 @@ def make_mini_batch(*value):
         yield [x[indices] for x in value[1:]]
         
 def convert_to_tensor(*value):
-    return [torch.tensor(x).float() for x in value]
+    device = value[0]
+    return [torch.tensor(x).float().to(device) for x in value[1:]]
 
 class ReplayBuffer():
     def __init__(self, action_prob_exist, max_size, state_dim, num_action):
