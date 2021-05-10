@@ -62,23 +62,14 @@ class Args():
         self.env_name = 'Hopper-v2'
         self.train = True
         self.render = False
-        self.epochs = 1001
-        self.entropy_coef = 0.01
-        self.critic_coef = 0.5
-        self.learning_rate = 3e-4
-        self.gamma = 0.99
-        self.lmbda = 0.95
-        self.eps_clip = 0.2
-        self.K_epoch = 10
-        self.T_horizon = 2048
         self.hidden_dim = 256
+        self.epochs = 5000
         self.minibatch_size = 64
         self.tensorboard = True
         self.load = 'no'
         self.save_interval = 100
         self.print_interval = 10
         self.use_cuda = False
-        self.max_grad_norm = 0.5
 args = Args()
 
 class SAC(nn.Module):
@@ -130,7 +121,7 @@ class SAC(nn.Module):
     def forward(self,x):
         return x
     
-    def train_net(self,batch_size):
+    def train_net(self,batch_size,writer,n_epi):
         data = self.data.sample(shuffle = True, batch_size = batch_size)
         states, actions, rewards, next_states, done_masks = convert_to_tensor(self.device, data['state'], data['action'], data['reward'], data['next_state'], data['done'])
         
@@ -146,12 +137,16 @@ class SAC(nn.Module):
         self.q_1_optimizer.zero_grad()
         q_1 = self.q_1(states,actions)
         q_1_loss = F.smooth_l1_loss(q_1, target.detach())
+        if writer != None:
+            writer.add_scalar("loss/q_1", q_1_loss, n_epi)
         q_1_loss.backward()
         self.q_1_optimizer.step()
         
         self.q_2_optimizer.zero_grad()
         q_2 = self.q_2(states,actions)
         q_2_loss = F.smooth_l1_loss(q_2, target.detach())
+        if writer != None:
+            writer.add_scalar("loss/q_2", q_2_loss, n_epi)
         q_2_loss.backward()
         self.q_2_optimizer.step()
         
@@ -163,12 +158,16 @@ class SAC(nn.Module):
         
         self.actor_optimizer.zero_grad()
         actor_loss = (self.alpha.detach() * now_action_log_prob - q.detach())
+        if writer != None:
+            writer.add_scalar("loss/actor_loss", actor_loss.mean(), n_epi)
         actor_loss.mean().backward()
         self.actor_optimizer.step()
         
         ###alpha update
         self.alpha_optimizer.zero_grad()
         alpha_loss = - self.alpha * (now_action_log_prob + self.target_entropy).detach()
+        if writer != None:
+            writer.add_scalar("loss/alpha_loss", alpha_loss.mean(), n_epi)
         alpha_loss.mean().backward()
         self.alpha_optimizer.step()
         
@@ -232,8 +231,10 @@ for n_epi in range(args.epochs):
         
         score += reward
         if agent.data.data_idx > 3000:
-            agent.train_net(64)  # batch_size
+            agent.train_net(args.minibatch_size, writer, n_epi)  
     score_lst.append(score)
+    if args.tensorboard:
+        writer.add_scalar("score/score", score, n_epi)
     if n_epi%args.print_interval==0 and n_epi!=0:
         print("# of episode :{}, avg score : {:.1f}".format(n_epi, sum(score_lst)/len(score_lst)))
         score_lst = []

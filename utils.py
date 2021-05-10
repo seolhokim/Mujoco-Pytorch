@@ -66,4 +66,4 @@ class ReplayBuffer():
         else:
             return self.data
     def size(self):
-        return self.data_idx
+        return min(self.max_size, self.data_idx)
