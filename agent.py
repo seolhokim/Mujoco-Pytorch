@@ -1,5 +1,5 @@
 from network import Actor, Critic
-from utils import ReplayBuffer, make_mini_batch
+from utils import ReplayBuffer, make_mini_batch, convert_to_tensor
 
 import torch
 import torch.nn as nn
@@ -39,14 +39,7 @@ class PPO(nn.Module):
         
     def train_net(self,n_epi,writer):
         data = self.data.sample(shuffle = False)
-        states, actions, rewards, next_states, done_masks, old_log_probs = data['state'], data['action'], data['reward'], data['next_state'], data['done'], data['log_prob']
-        
-        states = torch.tensor(states).float()
-        actions = torch.tensor(actions).float()
-        rewards = torch.tensor(rewards).float()
-        next_states = torch.tensor(next_states).float()
-        done_masks = torch.tensor(done_masks).float()
-        old_log_probs = torch.tensor(old_log_probs).float()
+        states, actions, rewards, next_states, done_masks, old_log_probs = convert_to_tensor(data['state'], data['action'], data['reward'], data['next_state'], data['done'], data['log_prob'])
         
         old_values = self.v(states).detach()
         td_target = rewards + self.gamma * self.v(next_states) * done_masks

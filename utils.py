@@ -20,6 +20,9 @@ def make_mini_batch(*value):
         indices = full_indices[mini_batch_size*i : mini_batch_size*(i+1)]
         yield [x[indices] for x in value[1:]]
         
+def convert_to_tensor(*value):
+    return [torch.tensor(x).float() for x in value]
+
 class ReplayBuffer():
     def __init__(self, action_prob_exist, max_size, state_dim, num_action):
         self.max_size = max_size
