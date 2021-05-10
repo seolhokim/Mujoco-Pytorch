@@ -71,7 +71,7 @@ class Args():
         self.eps_clip = 0.2
         self.K_epoch = 10
         self.T_horizon = 2048
-        self.hidden_dim = 64
+        self.hidden_dim = 256
         self.minibatch_size = 64
         self.tensorboard = True
         self.load = 'no'
@@ -91,10 +91,11 @@ class SAC(nn.Module):
         self.target_q_2 = QNetwork(state_dim,action_dim,hidden_dim)
         
         self.actor = Actor(state_dim,action_dim,hidden_dim)
-        self.alpha = nn.Parameter(torch.zeros(1))
-        self.data = ReplayBuffer(action_prob_exist = False, max_size = 50000, state_dim = state_dim, num_action = action_dim)
+        #self.alpha = nn.Parameter(torch.zeros(1))
+        self.alpha = nn.Parameter(torch.tensor(0.01))
+        self.data = ReplayBuffer(action_prob_exist = False, max_size = int(1e+6), state_dim = state_dim, num_action = action_dim)
         
-        self.target_entropy = torch.tensor(action_dim)
+        self.target_entropy = -torch.tensor(action_dim)
         
         self.gamma = 0.99
         self.lr_q = 3e-4
@@ -120,7 +121,7 @@ class SAC(nn.Module):
     def get_action(self,state):
         mu,std = self.actor(state)
         dist = Normal(mu,std)
-        u = dist.sample()
+        u = dist.rsample()
         u_log_prob = dist.log_prob(u)
         a = torch.tanh(u)
         a_log_prob = u_log_prob - torch.log(1 - torch.square(a) +1e-3)
@@ -140,7 +141,7 @@ class SAC(nn.Module):
         q = torch.min(q_1,q_2)
         v = done_masks * (q - self.alpha * next_action_log_prob)
         target = rewards + self.gamma * v
-        
+
         ###q update
         self.q_1_optimizer.zero_grad()
         q_1 = self.q_1(states,actions)
@@ -218,7 +219,8 @@ for n_epi in range(args.epochs):
         if args.render:    
             env.render()
         action, _ = agent.get_action(torch.from_numpy(state).float().to(device))
-        next_state, reward, done, info = env.step(action.cpu().numpy())
+        action = action.cpu().detach().numpy()
+        next_state, reward, done, info = env.step(action)
         transition = make_transition(state,\
                                      action,\
                                      np.array([reward/10.0]),\
@@ -226,10 +228,11 @@ for n_epi in range(args.epochs):
                                      np.array([done])\
                                     )
         agent.put_data(transition) 
+        state = next_state
+        
         score += reward
         if agent.data.data_idx > 3000:
             agent.train_net(64)  # batch_size
-        state = next_state
     score_lst.append(score)
     if n_epi%args.print_interval==0 and n_epi!=0:
         print("# of episode :{}, avg score : {:.1f}".format(n_epi, sum(score_lst)/len(score_lst)))
