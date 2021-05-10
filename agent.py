@@ -39,7 +39,7 @@ class PPO(nn.Module):
         self.data.put_data(transition)
         
     def train_net(self,n_epi,writer):
-        data = self.data.sample(self.T_horizon,shuffle = False)
+        data = self.data.sample(shuffle = False)
         states, actions, rewards, next_states, done_masks, old_log_probs = data['state'], data['action'], data['reward'], data['next_state'], data['done'], data['log_prob']
         
         states = torch.tensor(states).float()
