@@ -118,59 +118,63 @@ class SAC(nn.Module):
     
     def forward(self,x):
         return x
-    
-    def train_net(self,batch_size,writer,n_epi):
-        data = self.data.sample(shuffle = True, batch_size = batch_size)
-        states, actions, rewards, next_states, done_masks = convert_to_tensor(self.device, data['state'], data['action'], data['reward'], data['next_state'], data['done'])
-        ###target
-        next_actions, next_action_log_prob = self.get_action(next_states)
-        q_1 = self.target_q_1(next_states,next_actions)
-        q_2 = self.target_q_2(next_states,next_actions)
-        q = torch.min(q_1,q_2)
-        v = done_masks * (q - self.alpha * next_action_log_prob)
-        target = rewards + self.gamma * v
-
-        ###q update
-        self.q_1_optimizer.zero_grad()
-        q_1 = self.q_1(states,actions)
-        q_1_loss = F.smooth_l1_loss(q_1, target.detach())
-        if writer != None:
-            writer.add_scalar("loss/q_1", q_1_loss, n_epi)
-        q_1_loss.backward()
-        self.q_1_optimizer.step()
-        
-        self.q_2_optimizer.zero_grad()
-        q_2 = self.q_2(states,actions)
-        q_2_loss = F.smooth_l1_loss(q_2, target.detach())
-        if writer != None:
-            writer.add_scalar("loss/q_2", q_2_loss, n_epi)
-        q_2_loss.backward()
-        self.q_2_optimizer.step()
-        
-        ### actor update
+    def q_update(self,q,q_optimizer,states,actions,targets):
+        q = q(states,actions)
+        loss = F.smooth_l1_loss(q, targets)
+        q_optimizer.zero_grad()
+        loss.backward()
+        q_optimizer.step()
+        return loss
+    def actor_update(self, states):
         now_actions, now_action_log_prob = self.get_action(states)
         q_1 = self.q_1(states,now_actions)
         q_2 = self.q_2(states,now_actions)
         q = torch.min(q_1,q_2)
         
+        loss = (self.alpha.detach() * now_action_log_prob - q.detach()).mean()
         self.actor_optimizer.zero_grad()
-        actor_loss = (self.alpha.detach() * now_action_log_prob - q.detach())
-        if writer != None:
-            writer.add_scalar("loss/actor_loss", actor_loss.mean(), n_epi)
-        actor_loss.mean().backward()
+        loss.backward()
         self.actor_optimizer.step()
+        return loss,now_action_log_prob
+    
+    def alpha_update(self, now_action_log_prob):
+        loss = (- self.alpha * (now_action_log_prob + self.target_entropy).detach()).mean()
+        self.alpha_optimizer.zero_grad()    
+        loss.backward()
+        self.alpha_optimizer.step()
+        return loss
+    
+    def train_net(self,batch_size,writer,n_epi):
+        data = self.data.sample(shuffle = True, batch_size = batch_size)
+        states, actions, rewards, next_states, done_masks = convert_to_tensor(self.device, data['state'], data['action'], data['reward'], data['next_state'], data['done'])
+        ###target
+        with torch.no_grad():
+            next_actions, next_action_log_prob = self.get_action(next_states)
+            q_1 = self.target_q_1(next_states,next_actions)
+            q_2 = self.target_q_2(next_states,next_actions)
+            q = torch.min(q_1,q_2)
+            v = done_masks * (q - self.alpha * next_action_log_prob)
+            targets = rewards + self.gamma * v
+
+        ###q update
+        q_1_loss = self.q_update(self.q_1,self.q_1_optimizer,states,actions,targets)
+        q_2_loss = self.q_update(self.q_2,self.q_2_optimizer,states,actions,targets)
+
+        ### actor update
+        actor_loss,prob = self.actor_update(states)
         
         ###alpha update
-        self.alpha_optimizer.zero_grad()
-        alpha_loss = - self.alpha * (now_action_log_prob + self.target_entropy).detach()
-        if writer != None:
-            writer.add_scalar("loss/alpha_loss", alpha_loss.mean(), n_epi)
-        alpha_loss.mean().backward()
-        self.alpha_optimizer.step()
+        alpha_loss = self.alpha_update(prob)
         
         self.soft_update(self.q_1, self.target_q_1, self.soft_update_rate)
         self.soft_update(self.q_2, self.target_q_2, self.soft_update_rate)
         
+        if writer != None:
+            writer.add_scalar("loss/q_1", q_1_loss, n_epi)
+            writer.add_scalar("loss/q_2", q_2_loss, n_epi)
+            writer.add_scalar("loss/actor_loss", actor_loss, n_epi)
+            writer.add_scalar("loss/alpha_loss", alpha_loss, n_epi)
+            
 env_lst = ['Ant-v2','HalfCheetah-v2', 'Hopper-v2', 'Humanoid-v2', 'HumanoidStandup-v2',\
           'InvertedDoublePendulum-v2', 'InvertedPendulum-v2', 'Walker2d-v2', 'Swimmer-v2', 'Reacher-v2']
 
