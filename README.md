@@ -7,7 +7,8 @@
 
 ## Implemented Algorithm
 * PPO
-* SAC(soon)
+* SAC : sac_test.py 
+  * Doesn't work. Any ideas?
 
 ## Performance
 
