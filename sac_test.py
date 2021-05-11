@@ -15,12 +15,12 @@ import torch.optim as optim
 from torch.distributions.normal import Normal
 
 class Actor(nn.Module):
-    def __init__(self,state_dim, action_dim, hidden_dim):
+    def __init__(self, state_dim, action_dim, hidden_dim):
         super(Actor, self).__init__()
-        self.fc1   = nn.Linear(state_dim,hidden_dim)
-        self.fc2   = nn.Linear(hidden_dim,hidden_dim)
+        self.fc1   = nn.Linear(state_dim, hidden_dim)
+        self.fc2   = nn.Linear(hidden_dim, hidden_dim)
 
-        self.pi = nn.Linear(hidden_dim,action_dim)
+        self.pi = nn.Linear(hidden_dim, action_dim)
         self.actor_logstd = nn.Parameter(torch.zeros(1, action_dim))
         for layer in self.modules():
             if isinstance(layer, nn.Linear):
@@ -35,20 +35,20 @@ class Actor(nn.Module):
         return mu,std
     
 class QNetwork(nn.Module):
-    def __init__(self,state_dim,action_dim,hidden_dim):
+    def __init__(self, state_dim, action_dim, hidden_dim):
         super(QNetwork, self).__init__()
-        self.fc1   = nn.Linear(state_dim+action_dim,hidden_dim)
-        self.fc2   = nn.Linear(hidden_dim,hidden_dim)
+        self.fc1   = nn.Linear(state_dim+action_dim, hidden_dim)
+        self.fc2   = nn.Linear(hidden_dim, hidden_dim)
         
-        self.q  = nn.Linear(hidden_dim,1)
+        self.q  = nn.Linear(hidden_dim, 1)
         
         for layer in self.modules():
             if isinstance(layer, nn.Linear):
                 nn.init.orthogonal_(layer.weight)
                 layer.bias.data.zero_()       
                 
-    def forward(self,state,action):
-        x = torch.cat((state,action),-1)
+    def forward(self, state, action):
+        x = torch.cat((state, action),-1)
         x = torch.relu(self.fc1(x))
         x = torch.relu(self.fc2(x))
         q = self.q(x)
@@ -72,15 +72,15 @@ args = Args()
 class SAC(nn.Module):
     def __init__(self, state_dim, action_dim, hidden_dim):
         super(SAC,self).__init__()
-        self.q_1 = QNetwork(state_dim,action_dim,hidden_dim)
-        self.q_2 = QNetwork(state_dim,action_dim,hidden_dim)
+        self.q_1 = QNetwork(state_dim, action_dim, hidden_dim)
+        self.q_2 = QNetwork(state_dim, action_dim, hidden_dim)
         
-        self.target_q_1 = QNetwork(state_dim,action_dim,hidden_dim)
-        self.target_q_2 = QNetwork(state_dim,action_dim,hidden_dim)
+        self.target_q_1 = QNetwork(state_dim, action_dim, hidden_dim)
+        self.target_q_2 = QNetwork(state_dim, action_dim, hidden_dim)
         
         self.soft_update(self.q_1, self.target_q_1, 1.)
         self.soft_update(self.q_2, self.target_q_2, 1.)
-        self.actor = Actor(state_dim,action_dim,hidden_dim)
+        self.actor = Actor(state_dim, action_dim, hidden_dim)
         
         self.alpha = nn.Parameter(torch.tensor(0.2))
         self.data = ReplayBuffer(action_prob_exist = False, max_size = int(1e+6), state_dim = state_dim, num_action = action_dim)
@@ -109,7 +109,7 @@ class SAC(nn.Module):
     
     def get_action(self,state):
         mu,std = self.actor(state)
-        dist = Normal(mu,std)
+        dist = Normal(mu, std)
         u = dist.rsample()
         u_log_prob = dist.log_prob(u)
         a = torch.tanh(u)
@@ -118,18 +118,20 @@ class SAC(nn.Module):
     
     def forward(self,x):
         return x
-    def q_update(self,q,q_optimizer,states,actions,targets):
-        q = q(states,actions)
+    
+    def q_update(self, Q, q_optimizer, states, actions, targets):
+        q = Q(states, actions)
         loss = F.smooth_l1_loss(q, targets)
         q_optimizer.zero_grad()
         loss.backward()
         q_optimizer.step()
         return loss
+    
     def actor_update(self, states):
         now_actions, now_action_log_prob = self.get_action(states)
-        q_1 = self.q_1(states,now_actions)
-        q_2 = self.q_2(states,now_actions)
-        q = torch.min(q_1,q_2)
+        q_1 = self.q_1(states, now_actions)
+        q_2 = self.q_2(states, now_actions)
+        q = torch.min(q_1, q_2)
         
         loss = (self.alpha.detach() * now_action_log_prob - q.detach()).mean()
         self.actor_optimizer.zero_grad()
@@ -144,21 +146,21 @@ class SAC(nn.Module):
         self.alpha_optimizer.step()
         return loss
     
-    def train_net(self,batch_size,writer,n_epi):
+    def train_net(self, batch_size, writer, n_epi):
         data = self.data.sample(shuffle = True, batch_size = batch_size)
         states, actions, rewards, next_states, done_masks = convert_to_tensor(self.device, data['state'], data['action'], data['reward'], data['next_state'], data['done'])
         ###target
         with torch.no_grad():
             next_actions, next_action_log_prob = self.get_action(next_states)
-            q_1 = self.target_q_1(next_states,next_actions)
-            q_2 = self.target_q_2(next_states,next_actions)
+            q_1 = self.target_q_1(next_states, next_actions)
+            q_2 = self.target_q_2(next_states, next_actions)
             q = torch.min(q_1,q_2)
             v = done_masks * (q - self.alpha * next_action_log_prob)
             targets = rewards + self.gamma * v
 
         ###q update
-        q_1_loss = self.q_update(self.q_1,self.q_1_optimizer,states,actions,targets)
-        q_2_loss = self.q_update(self.q_2,self.q_2_optimizer,states,actions,targets)
+        q_1_loss = self.q_update(self.q_1, self.q_1_optimizer, states, actions, targets)
+        q_2_loss = self.q_update(self.q_2, self.q_2_optimizer, states, actions, targets)
 
         ### actor update
         actor_loss,prob = self.actor_update(states)
@@ -168,12 +170,11 @@ class SAC(nn.Module):
         
         self.soft_update(self.q_1, self.target_q_1, self.soft_update_rate)
         self.soft_update(self.q_2, self.target_q_2, self.soft_update_rate)
-        
         if writer != None:
             writer.add_scalar("loss/q_1", q_1_loss, n_epi)
             writer.add_scalar("loss/q_2", q_2_loss, n_epi)
-            writer.add_scalar("loss/actor_loss", actor_loss, n_epi)
-            writer.add_scalar("loss/alpha_loss", alpha_loss, n_epi)
+            writer.add_scalar("loss/actor", actor_loss, n_epi)
+            writer.add_scalar("loss/alpha", alpha_loss, n_epi)
             
 env_lst = ['Ant-v2','HalfCheetah-v2', 'Hopper-v2', 'Humanoid-v2', 'HumanoidStandup-v2',\
           'InvertedDoublePendulum-v2', 'InvertedPendulum-v2', 'Walker2d-v2', 'Swimmer-v2', 'Reacher-v2']
@@ -194,13 +195,13 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 if args.use_cuda == False:
     device = 'cpu'
 
-agent = SAC(state_space,action_space,args.hidden_dim)
+agent = SAC(state_space, action_space, args.hidden_dim)
 
 if (torch.cuda.is_available()) and (args.use_cuda):
     agent = agent.cuda()
 
 if args.load != 'no':
-    agent.load_state_dict(torch.load("./model_weights/"+args.load))
+    agent.load_state_dict(torch.load("./model_weights/" + args.load))
 
 if args.tensorboard:
     from torch.utils.tensorboard import SummaryWriter
