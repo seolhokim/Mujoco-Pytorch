@@ -4,19 +4,15 @@ import argparse
 import os
 
 from environment import NormalizedGymEnv
-from utils import make_transition
+from utils import ReplayBuffer, convert_to_tensor, make_transition
 
-import torch
 os.makedirs('./model_weights', exist_ok=True)
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import numpy as np
-from utils import ReplayBuffer,convert_to_tensor
 import torch.optim as optim
 from torch.distributions.normal import Normal
-
 
 class Actor(nn.Module):
     def __init__(self,state_dim, action_dim, hidden_dim):
@@ -37,6 +33,7 @@ class Actor(nn.Module):
         mu = self.pi(x)
         std = torch.exp(self.actor_logstd)
         return mu,std
+    
 class QNetwork(nn.Module):
     def __init__(self,state_dim,action_dim,hidden_dim):
         super(QNetwork, self).__init__()
@@ -84,10 +81,9 @@ class SAC(nn.Module):
         self.soft_update(self.q_1, self.target_q_1, 1.)
         self.soft_update(self.q_2, self.target_q_2, 1.)
         self.actor = Actor(state_dim,action_dim,hidden_dim)
-        #self.alpha = nn.Parameter(torch.zeros(1))
+        
         self.alpha = nn.Parameter(torch.tensor(0.2))
         self.data = ReplayBuffer(action_prob_exist = False, max_size = int(1e+6), state_dim = state_dim, num_action = action_dim)
-        
         self.target_entropy = -torch.tensor(action_dim)
         
         self.gamma = 0.99
@@ -108,8 +104,8 @@ class SAC(nn.Module):
         self.data.put_data(transition)
         
     def soft_update(self, network, target_network, rate):
-        for network, target_network in zip(network.parameters(), target_network.parameters()):
-            target_network.data.copy_(target_network.data * (1.0 - rate) + network.data * rate)
+        for network_params, target_network_params in zip(network.parameters(), target_network.parameters()):
+            target_network_params.data.copy_(target_network_params.data * (1.0 - rate) + network_params.data * rate)
     
     def get_action(self,state):
         mu,std = self.actor(state)
@@ -118,7 +114,7 @@ class SAC(nn.Module):
         u_log_prob = dist.log_prob(u)
         a = torch.tanh(u)
         a_log_prob = u_log_prob - torch.log(1 - torch.square(a) +1e-3)
-        return a, a_log_prob.sum(1, keepdim=True)
+        return a, a_log_prob.sum(-1, keepdim=True)
     
     def forward(self,x):
         return x
@@ -126,7 +122,6 @@ class SAC(nn.Module):
     def train_net(self,batch_size,writer,n_epi):
         data = self.data.sample(shuffle = True, batch_size = batch_size)
         states, actions, rewards, next_states, done_masks = convert_to_tensor(self.device, data['state'], data['action'], data['reward'], data['next_state'], data['done'])
-        
         ###target
         next_actions, next_action_log_prob = self.get_action(next_states)
         q_1 = self.target_q_1(next_states,next_actions)
@@ -222,6 +217,7 @@ for n_epi in range(args.epochs):
         action, _ = agent.get_action(torch.from_numpy(state).float().to(device))
         action = action.cpu().detach().numpy()
         next_state, reward, done, info = env.step(action)
+
         transition = make_transition(state,\
                                      action,\
                                      np.array([reward/10.0]),\
@@ -229,6 +225,7 @@ for n_epi in range(args.epochs):
                                      np.array([done])\
                                     )
         agent.put_data(transition) 
+
         state = next_state
         
         score += reward
