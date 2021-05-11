@@ -81,9 +81,11 @@ class SAC(nn.Module):
         self.target_q_1 = QNetwork(state_dim,action_dim,hidden_dim)
         self.target_q_2 = QNetwork(state_dim,action_dim,hidden_dim)
         
+        self.soft_update(self.q_1, self.target_q_1, 1.)
+        self.soft_update(self.q_2, self.target_q_2, 1.)
         self.actor = Actor(state_dim,action_dim,hidden_dim)
         #self.alpha = nn.Parameter(torch.zeros(1))
-        self.alpha = nn.Parameter(torch.tensor(0.01))
+        self.alpha = nn.Parameter(torch.tensor(0.2))
         self.data = ReplayBuffer(action_prob_exist = False, max_size = int(1e+6), state_dim = state_dim, num_action = action_dim)
         
         self.target_entropy = -torch.tensor(action_dim)
@@ -105,9 +107,9 @@ class SAC(nn.Module):
     def put_data(self,transition):
         self.data.put_data(transition)
         
-    def soft_update(self, network, target_network):
+    def soft_update(self, network, target_network, rate):
         for network, target_network in zip(network.parameters(), target_network.parameters()):
-            target_network.data.copy_(target_network.data * (1.0 - self.soft_update_rate) + network.data * self.soft_update_rate)
+            target_network.data.copy_(target_network.data * (1.0 - rate) + network.data * rate)
     
     def get_action(self,state):
         mu,std = self.actor(state)
@@ -171,8 +173,8 @@ class SAC(nn.Module):
         alpha_loss.mean().backward()
         self.alpha_optimizer.step()
         
-        self.soft_update(self.q_1, self.target_q_1)
-        self.soft_update(self.q_2, self.target_q_2)
+        self.soft_update(self.q_1, self.target_q_1, self.soft_update_rate)
+        self.soft_update(self.q_2, self.target_q_2, self.soft_update_rate)
         
 env_lst = ['Ant-v2','HalfCheetah-v2', 'Hopper-v2', 'Humanoid-v2', 'HumanoidStandup-v2',\
           'InvertedDoublePendulum-v2', 'InvertedPendulum-v2', 'Walker2d-v2', 'Swimmer-v2', 'Reacher-v2']
