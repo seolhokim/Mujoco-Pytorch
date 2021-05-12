@@ -49,8 +49,11 @@ if args.algo == 'ppo' :
                 get_value(parser,args.algo,'batch_size'), get_value(parser,args.algo,'max_grad_norm'),\
                 device)
 elif args.algo == 'sac' :
-    agent = SAC(state_dim, action_dim, get_value(parser,args.algo, 'hidden_dim'))
-
+    agent = SAC(state_dim, action_dim, get_value(parser,args.algo, 'hidden_dim'),\
+               get_value(parser,args.algo, 'alpha_init'),get_value(parser,args.algo, 'gamma'),\
+                get_value(parser,args.algo, 'q_lr'),get_value(parser,args.algo, 'actor_lr'),\
+                get_value(parser,args.algo, 'alpha_lr'),get_value(parser,args.algo, 'soft_update_rate'),\
+               device)
 if (torch.cuda.is_available()) and (args.use_cuda):
     agent = agent.cuda()
 
