@@ -1,6 +1,9 @@
 import numpy as np
 import torch
 
+def get_value(parser, section, value):
+    return eval(parser[section][value])
+
 def make_transition(state,action,reward,next_state,done,log_prob=None):
     transition = {}
     transition['state'] = state

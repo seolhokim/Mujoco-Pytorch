@@ -6,7 +6,7 @@ import torch.nn as nn
 import torch.optim as optim
 
 class PPO(nn.Module):
-    def __init__(self,state_dim,action_dim,hidden_dim = 64, learning_rate = 3e-4,entropy_coef = 1e-2,critic_coef =0.5, gamma = 0.99, lmbda =0.95,eps_clip= 0.2,K_epoch = 10,T_horizon = 2048, minibatch_size = 64, max_grad_norm = 0.5, device = 'cpu'):
+    def __init__(self,state_dim,action_dim,hidden_dim = 64, actor_lr = 3e-4,critic_lr = 3e-4,entropy_coef = 1e-2,critic_coef =0.5, gamma = 0.99, lmbda =0.95,eps_clip= 0.2,K_epoch = 10,T_horizon = 2048, minibatch_size = 64, max_grad_norm = 0.5, device = 'cpu'):
         super(PPO,self).__init__()
         
         self.entropy_coef = entropy_coef
@@ -23,8 +23,8 @@ class PPO(nn.Module):
         self.actor = Actor(state_dim,action_dim,hidden_dim)
         self.critic = Critic(state_dim,hidden_dim)
         
-        self.actor_optimizer = optim.Adam(self.actor.parameters(), lr=learning_rate)
-        self.critic_optimizer = optim.Adam(self.critic.parameters(), lr=learning_rate)
+        self.actor_optimizer = optim.Adam(self.actor.parameters(), lr=actor_lr)
+        self.critic_optimizer = optim.Adam(self.critic.parameters(), lr=critic_lr)
 
         self.device = device
     def pi(self,x):
