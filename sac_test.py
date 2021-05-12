@@ -133,7 +133,7 @@ class SAC(nn.Module):
         q_2 = self.q_2(states, now_actions)
         q = torch.min(q_1, q_2)
         
-        loss = (self.alpha.detach() * now_action_log_prob - q.detach()).mean()
+        loss = (self.alpha.detach() * now_action_log_prob - q).mean()
         self.actor_optimizer.zero_grad()
         loss.backward()
         self.actor_optimizer.step()
