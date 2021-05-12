@@ -1,4 +1,4 @@
-from networks.network import Actor, QNetwork
+from networks.network import Actor, Critic
 from utils.environment import NormalizedGymEnv
 from utils.utils import ReplayBuffer, convert_to_tensor, make_transition
 
@@ -10,18 +10,21 @@ from torch.distributions.normal import Normal
 
 
 class SAC(nn.Module):
-    def __init__(self, state_dim, action_dim, hidden_dim, alpha_init, \
+    def __init__(self, state_dim, action_dim, layer_num, hidden_dim, \
+                 activation_function, last_activation, trainable_std, alpha_init, \
                  gamma, q_lr, actor_lr, alpha_lr, soft_update_rate, device):
         super(SAC,self).__init__()
-        self.q_1 = QNetwork(state_dim, action_dim, hidden_dim)
-        self.q_2 = QNetwork(state_dim, action_dim, hidden_dim)
+        self.actor = Actor(layer_num, state_dim, action_dim, hidden_dim, \
+                           activation_function,last_activation,trainable_std)
+
+        self.q_1 = Critic(layer_num, state_dim+action_dim, 1, hidden_dim, activation_function,last_activation)
+        self.q_2 = Critic(layer_num, state_dim+action_dim, 1, hidden_dim, activation_function,last_activation)
         
-        self.target_q_1 = QNetwork(state_dim, action_dim, hidden_dim)
-        self.target_q_2 = QNetwork(state_dim, action_dim, hidden_dim)
+        self.target_q_1 = Critic(layer_num, state_dim+action_dim, 1, hidden_dim, activation_function,last_activation)
+        self.target_q_2 = Critic(layer_num, state_dim+action_dim, 1, hidden_dim, activation_function,last_activation)
         
         self.soft_update(self.q_1, self.target_q_1, 1.)
         self.soft_update(self.q_2, self.target_q_2, 1.)
-        self.actor = Actor(state_dim, action_dim, hidden_dim)
         
         self.alpha = nn.Parameter(torch.tensor(alpha_init))
         self.data = ReplayBuffer(action_prob_exist = False, max_size = int(1e+6), state_dim = state_dim, num_action = action_dim)

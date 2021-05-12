@@ -41,7 +41,9 @@ state_dim = env.observation_space.shape[0]
 
 if args.algo == 'ppo' :
     agent = PPO(state_dim,action_dim,\
-                get_value(parser,args.algo, 'hidden_dim'), get_value(parser,args.algo, 'actor_lr'),\
+                get_value(parser,args.algo, 'layer_num'), get_value(parser,args.algo, 'hidden_dim'),\
+                get_value(parser,args.algo, 'activation_function'), get_value(parser,args.algo, 'last_activation'),\
+                get_value(parser,args.algo, 'trainable_std'), get_value(parser,args.algo, 'actor_lr'),\
                 get_value(parser,args.algo, 'critic_lr'),get_value(parser,args.algo,'entropy_coef'),\
                 get_value(parser,args.algo,'critic_coef'),get_value(parser,args.algo,'gamma'),\
                 get_value(parser,args.algo,'lambda'),get_value(parser,args.algo,'max_clip'),\
@@ -49,10 +51,13 @@ if args.algo == 'ppo' :
                 get_value(parser,args.algo,'batch_size'), get_value(parser,args.algo,'max_grad_norm'),\
                 device)
 elif args.algo == 'sac' :
-    agent = SAC(state_dim, action_dim, get_value(parser,args.algo, 'hidden_dim'),\
-               get_value(parser,args.algo, 'alpha_init'),get_value(parser,args.algo, 'gamma'),\
-                get_value(parser,args.algo, 'q_lr'),get_value(parser,args.algo, 'actor_lr'),\
-                get_value(parser,args.algo, 'alpha_lr'),get_value(parser,args.algo, 'soft_update_rate'),\
+    agent = SAC(state_dim, action_dim, \
+                get_value(parser,args.algo, 'layer_num'),get_value(parser,args.algo, 'hidden_dim'),\
+                get_value(parser,args.algo, 'activation_function'), get_value(parser,args.algo, 'last_activation'),\
+                get_value(parser,args.algo, 'trainable_std'),get_value(parser,args.algo, 'alpha_init'),\
+                get_value(parser,args.algo, 'gamma'),get_value(parser,args.algo, 'q_lr'),\
+                get_value(parser,args.algo, 'actor_lr'), get_value(parser,args.algo, 'alpha_lr'),\
+                get_value(parser,args.algo, 'soft_update_rate'),\
                device)
 if (torch.cuda.is_available()) and (args.use_cuda):
     agent = agent.cuda()
@@ -75,7 +80,7 @@ if get_value(parser,args.algo, 'on_policy') == True:
         for t in range(get_value(parser,args.algo,'traj_length')):
             if args.render:    
                 env.render()
-            mu,sigma = agent.pi(torch.from_numpy(state).float().to(device))
+            mu,sigma = agent.get_action(torch.from_numpy(state).float().to(device))
             dist = torch.distributions.Normal(mu,sigma[0])
             action = dist.sample()
             log_prob = dist.log_prob(action).sum(-1,keepdim = True)

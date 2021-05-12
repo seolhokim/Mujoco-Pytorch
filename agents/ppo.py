@@ -6,7 +6,8 @@ import torch.nn as nn
 import torch.optim as optim
 
 class PPO(nn.Module):
-    def __init__(self,state_dim,action_dim,hidden_dim = 64, actor_lr = 3e-4,critic_lr = 3e-4,entropy_coef = 1e-2,critic_coef =0.5, gamma = 0.99, lmbda =0.95,eps_clip= 0.2,K_epoch = 10,T_horizon = 2048, minibatch_size = 64, max_grad_norm = 0.5, device = 'cpu'):
+    def __init__(self, state_dim, action_dim, layer_num = 3, hidden_dim = 64,\
+                 activation_function = torch.tanh, last_activation = None, trainable_std = True, actor_lr = 3e-4,critic_lr = 3e-4,entropy_coef = 1e-2,critic_coef =0.5, gamma = 0.99, lmbda =0.95,eps_clip= 0.2,K_epoch = 10,T_horizon = 2048, minibatch_size = 64, max_grad_norm = 0.5, device = 'cpu'):
         super(PPO,self).__init__()
         
         self.entropy_coef = entropy_coef
@@ -19,15 +20,15 @@ class PPO(nn.Module):
         self.max_grad_norm = max_grad_norm
         self.T_horizon = T_horizon
         self.data = ReplayBuffer(action_prob_exist = True, max_size = T_horizon, state_dim = state_dim, num_action = action_dim)
-        
-        self.actor = Actor(state_dim,action_dim,hidden_dim)
-        self.critic = Critic(state_dim,hidden_dim)
+        self.actor = Actor(layer_num, state_dim, action_dim, hidden_dim, \
+                           activation_function,last_activation,trainable_std)
+        self.critic = Critic(layer_num, state_dim, 1, hidden_dim, activation_function,last_activation)
         
         self.actor_optimizer = optim.Adam(self.actor.parameters(), lr=actor_lr)
         self.critic_optimizer = optim.Adam(self.critic.parameters(), lr=critic_lr)
 
         self.device = device
-    def pi(self,x):
+    def get_action(self,x):
         mu,sigma = self.actor(x)
         return mu,sigma
     
@@ -65,7 +66,7 @@ class PPO(nn.Module):
             for state,action,old_log_prob,advantage,return_,old_value \
             in make_mini_batch(self.minibatch_size, states, actions, \
                                            old_log_probs,advantages,returns,old_values): 
-                curr_mu,curr_sigma = self.pi(state)
+                curr_mu,curr_sigma = self.get_action(state)
                 value = self.v(state).float()
                 curr_dist = torch.distributions.Normal(curr_mu,curr_sigma)
                 entropy = curr_dist.entropy() * self.entropy_coef
