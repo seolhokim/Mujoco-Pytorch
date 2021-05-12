@@ -3,9 +3,9 @@ import numpy as np
 import argparse
 import os
 
-from agent import PPO
-from environment import NormalizedGymEnv
-from utils import make_transition
+from agents.ppo import PPO
+from utils.environment import NormalizedGymEnv
+from utils.utils import make_transition
 
 import torch
 os.makedirs('./model_weights', exist_ok=True)
