@@ -57,7 +57,7 @@ elif args.algo == 'sac' :
                 get_value(parser,args.algo, 'trainable_std'),get_value(parser,args.algo, 'alpha_init'),\
                 get_value(parser,args.algo, 'gamma'),get_value(parser,args.algo, 'q_lr'),\
                 get_value(parser,args.algo, 'actor_lr'), get_value(parser,args.algo, 'alpha_lr'),\
-                get_value(parser,args.algo, 'soft_update_rate'),\
+                get_value(parser,args.algo, 'soft_update_rate'),get_value(parser,args.algo, 'memory_size'),\
                device)
 if (torch.cuda.is_available()) and (args.use_cuda):
     agent = agent.cuda()

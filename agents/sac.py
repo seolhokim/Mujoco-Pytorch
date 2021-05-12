@@ -12,7 +12,7 @@ from torch.distributions.normal import Normal
 class SAC(nn.Module):
     def __init__(self, state_dim, action_dim, layer_num, hidden_dim, \
                  activation_function, last_activation, trainable_std, alpha_init, \
-                 gamma, q_lr, actor_lr, alpha_lr, soft_update_rate, device):
+                 gamma, q_lr, actor_lr, alpha_lr, soft_update_rate, memory_size, device):
         super(SAC,self).__init__()
         self.actor = Actor(layer_num, state_dim, action_dim, hidden_dim, \
                            activation_function,last_activation,trainable_std)
@@ -27,7 +27,7 @@ class SAC(nn.Module):
         self.soft_update(self.q_2, self.target_q_2, 1.)
         
         self.alpha = nn.Parameter(torch.tensor(alpha_init))
-        self.data = ReplayBuffer(action_prob_exist = False, max_size = int(1e+6), state_dim = state_dim, num_action = action_dim)
+        self.data = ReplayBuffer(action_prob_exist = False, max_size = int(memory_size), state_dim = state_dim, num_action = action_dim)
         self.target_entropy = -torch.tensor(action_dim)
         
         self.gamma = gamma

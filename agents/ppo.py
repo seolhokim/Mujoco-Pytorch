@@ -7,19 +7,21 @@ import torch.optim as optim
 
 class PPO(nn.Module):
     def __init__(self, state_dim, action_dim, layer_num = 3, hidden_dim = 64,\
-                 activation_function = torch.tanh, last_activation = None, trainable_std = True, actor_lr = 3e-4,critic_lr = 3e-4,entropy_coef = 1e-2,critic_coef =0.5, gamma = 0.99, lmbda =0.95,eps_clip= 0.2,K_epoch = 10,T_horizon = 2048, minibatch_size = 64, max_grad_norm = 0.5, device = 'cpu'):
+                 activation_function = torch.tanh, last_activation = None, trainable_std = True,\
+                 actor_lr = 3e-4,critic_lr = 3e-4,entropy_coef = 1e-2,critic_coef =0.5, \
+                 gamma = 0.99, lambd =0.95,max_clip= 0.2,train_epoch = 10,traj_length = 2048, batch_size = 64, max_grad_norm = 0.5, device = 'cpu'):
         super(PPO,self).__init__()
         
         self.entropy_coef = entropy_coef
         self.critic_coef = critic_coef
         self.gamma = gamma
-        self.lmbda = lmbda
-        self.eps_clip = eps_clip
-        self.K_epoch = K_epoch
-        self.minibatch_size = minibatch_size
+        self.lambd = lambd
+        self.max_clip = max_clip
+        self.train_epoch = train_epoch
+        self.batch_size = batch_size
         self.max_grad_norm = max_grad_norm
-        self.T_horizon = T_horizon
-        self.data = ReplayBuffer(action_prob_exist = True, max_size = T_horizon, state_dim = state_dim, num_action = action_dim)
+        self.traj_length = traj_length
+        self.data = ReplayBuffer(action_prob_exist = True, max_size = traj_length, state_dim = state_dim, num_action = action_dim)
         self.actor = Actor(layer_num, state_dim, action_dim, hidden_dim, \
                            activation_function,last_activation,trainable_std)
         self.critic = Critic(layer_num, state_dim, 1, hidden_dim, activation_function,last_activation)
@@ -48,7 +50,7 @@ class PPO(nn.Module):
         for idx in reversed(range(len(delta))):
             if done_masks[idx] == 0:
                 advantage = 0.0
-            advantage = self.gamma * self.lmbda * advantage + delta[idx][0]
+            advantage = self.gamma * self.lambd * advantage + delta[idx][0]
             advantage_lst.append([advantage])
         advantage_lst.reverse()
         advantages = torch.tensor(advantage_lst, dtype=torch.float).to(self.device)
@@ -62,9 +64,9 @@ class PPO(nn.Module):
         returns = advantages + old_values
         advantages = (advantages - advantages.mean())/(advantages.std()+1e-3)
         
-        for i in range(self.K_epoch):
+        for i in range(self.train_epoch):
             for state,action,old_log_prob,advantage,return_,old_value \
-            in make_mini_batch(self.minibatch_size, states, actions, \
+            in make_mini_batch(self.batch_size, states, actions, \
                                            old_log_probs,advantages,returns,old_values): 
                 curr_mu,curr_sigma = self.get_action(state)
                 value = self.v(state).float()
@@ -75,11 +77,11 @@ class PPO(nn.Module):
                 #policy clipping
                 ratio = torch.exp(curr_log_prob - old_log_prob.detach())
                 surr1 = ratio * advantage
-                surr2 = torch.clamp(ratio, 1-self.eps_clip, 1+self.eps_clip) * advantage
+                surr2 = torch.clamp(ratio, 1-self.max_clip, 1+self.max_clip) * advantage
                 actor_loss = (-torch.min(surr1, surr2) - entropy).mean() 
                 
                 #value clipping (PPO2 technic)
-                old_value_clipped = old_value + (value - old_value).clamp(-self.eps_clip,self.eps_clip)
+                old_value_clipped = old_value + (value - old_value).clamp(-self.max_clip,self.max_clip)
                 value_loss = (value - return_.detach().float()).pow(2)
                 value_loss_clipped = (old_value_clipped - return_.detach().float()).pow(2)
                 critic_loss = 0.5 * self.critic_coef * torch.max(value_loss,value_loss_clipped).mean()
