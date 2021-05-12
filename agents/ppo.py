@@ -1,5 +1,5 @@
-from network import Actor, Critic
-from utils import ReplayBuffer, make_mini_batch, convert_to_tensor
+from networks.network import Actor, Critic
+from utils.utils import ReplayBuffer, make_mini_batch, convert_to_tensor
 
 import torch
 import torch.nn as nn
@@ -70,9 +70,7 @@ class PPO(nn.Module):
                 curr_dist = torch.distributions.Normal(curr_mu,curr_sigma)
                 entropy = curr_dist.entropy() * self.entropy_coef
                 curr_log_prob = curr_dist.log_prob(action).sum(1,keepdim = True)
-                
-                
-                
+
                 #policy clipping
                 ratio = torch.exp(curr_log_prob - old_log_prob.detach())
                 surr1 = ratio * advantage
