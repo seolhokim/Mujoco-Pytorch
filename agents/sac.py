@@ -1,5 +1,5 @@
 from networks.network import Actor, Critic
-from utils.utils import ReplayBuffer, convert_to_tensor, make_transition
+from utils.utils import ReplayBuffer, convert_to_tensor
 
 import torch
 import torch.nn as nn
