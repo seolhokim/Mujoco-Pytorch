@@ -1,5 +1,4 @@
 from networks.network import Actor, Critic
-from utils.environment import NormalizedGymEnv
 from utils.utils import ReplayBuffer, convert_to_tensor, make_transition
 
 import torch
@@ -10,38 +9,34 @@ from torch.distributions.normal import Normal
 
 
 class SAC(nn.Module):
-    def __init__(self, state_dim, action_dim, layer_num, hidden_dim, \
-                 activation_function, last_activation, trainable_std, alpha_init, \
-                 gamma, q_lr, actor_lr, alpha_lr, soft_update_rate, memory_size, device):
+    def __init__(self, writer, device, state_dim, action_dim, args):
         super(SAC,self).__init__()
-        self.actor = Actor(layer_num, state_dim, action_dim, hidden_dim, \
-                           activation_function,last_activation,trainable_std)
+        self.args = args
+        self.actor = Actor(self.args.layer_num, state_dim, action_dim, self.args.hidden_dim, \
+                           self.args.activation_function, self.args.last_activation, self.args.trainable_std)
 
-        self.q_1 = Critic(layer_num, state_dim+action_dim, 1, hidden_dim, activation_function,last_activation)
-        self.q_2 = Critic(layer_num, state_dim+action_dim, 1, hidden_dim, activation_function,last_activation)
+        self.q_1 = Critic(self.args.layer_num, state_dim+action_dim, 1, self.args.hidden_dim, self.args.activation_function,self.args.last_activation)
+        self.q_2 = Critic(self.args.layer_num, state_dim+action_dim, 1, self.args.hidden_dim, self.args.activation_function,self.args.last_activation)
         
-        self.target_q_1 = Critic(layer_num, state_dim+action_dim, 1, hidden_dim, activation_function,last_activation)
-        self.target_q_2 = Critic(layer_num, state_dim+action_dim, 1, hidden_dim, activation_function,last_activation)
+        self.target_q_1 = Critic(self.args.layer_num, state_dim+action_dim, 1, self.args.hidden_dim, self.args.activation_function, self.args.last_activation)
+        self.target_q_2 = Critic(self.args.layer_num, state_dim+action_dim, 1, self.args.hidden_dim, self.args.activation_function, self.args.last_activation)
         
         self.soft_update(self.q_1, self.target_q_1, 1.)
         self.soft_update(self.q_2, self.target_q_2, 1.)
         
-        self.alpha = nn.Parameter(torch.tensor(alpha_init))
-        self.data = ReplayBuffer(action_prob_exist = False, max_size = int(memory_size), state_dim = state_dim, num_action = action_dim)
-        self.target_entropy = -torch.tensor(action_dim)
+        self.alpha = nn.Parameter(torch.tensor(self.args.alpha_init))
         
-        self.gamma = gamma
-        self.q_lr = q_lr
-        self.actor_lr = actor_lr
-        self.alpha_lr = alpha_lr
-        self.soft_update_rate = soft_update_rate 
+        self.data = ReplayBuffer(action_prob_exist = False, max_size = int(self.args.memory_size), state_dim = state_dim, num_action = action_dim)
+        self.target_entropy = - torch.tensor(action_dim)
+
+        self.q_1_optimizer = optim.Adam(self.q_1.parameters(), lr=self.args.q_lr)
+        self.q_2_optimizer = optim.Adam(self.q_2.parameters(), lr=self.args.q_lr)
+        
+        self.actor_optimizer = optim.Adam(self.actor.parameters(), lr=self.args.actor_lr)
+        self.alpha_optimizer = optim.Adam([self.alpha], lr=self.args.alpha_lr)
+        
         self.device = device
-        
-        self.q_1_optimizer = optim.Adam(self.q_1.parameters(), lr=self.q_lr)
-        self.q_2_optimizer = optim.Adam(self.q_2.parameters(), lr=self.q_lr)
-        
-        self.actor_optimizer = optim.Adam(self.actor.parameters(), lr=self.actor_lr)
-        self.alpha_optimizer = optim.Adam([self.alpha], lr=self.alpha_lr)
+        self.writer = writer
         
     def put_data(self,transition):
         self.data.put_data(transition)
@@ -67,7 +62,7 @@ class SAC(nn.Module):
             q_2 = self.target_q_2(next_states, next_actions)
             q = torch.min(q_1,q_2)
             v = done_masks * (q - self.alpha * next_action_log_prob)
-            targets = rewards + self.gamma * v
+            targets = rewards + self.args.gamma * v
         
         q = Q(states, actions)
         loss = F.smooth_l1_loss(q, targets)
@@ -95,7 +90,7 @@ class SAC(nn.Module):
         self.alpha_optimizer.step()
         return loss
     
-    def train_net(self, batch_size, writer, n_epi):
+    def train_net(self, batch_size, n_epi):
         data = self.data.sample(shuffle = True, batch_size = batch_size)
         states, actions, rewards, next_states, done_masks = convert_to_tensor(self.device, data['state'], data['action'], data['reward'], data['next_state'], data['done'])
 
@@ -109,11 +104,11 @@ class SAC(nn.Module):
         ###alpha update
         alpha_loss = self.alpha_update(prob)
         
-        self.soft_update(self.q_1, self.target_q_1, self.soft_update_rate)
-        self.soft_update(self.q_2, self.target_q_2, self.soft_update_rate)
-        if writer != None:
-            writer.add_scalar("loss/q_1", q_1_loss, n_epi)
-            writer.add_scalar("loss/q_2", q_2_loss, n_epi)
-            writer.add_scalar("loss/actor", actor_loss, n_epi)
-            writer.add_scalar("loss/alpha", alpha_loss, n_epi)
+        self.soft_update(self.q_1, self.target_q_1, self.args.soft_update_rate)
+        self.soft_update(self.q_2, self.target_q_2, self.args.soft_update_rate)
+        if self.writer != None:
+            self.writer.add_scalar("loss/q_1", q_1_loss, n_epi)
+            self.writer.add_scalar("loss/q_2", q_2_loss, n_epi)
+            self.writer.add_scalar("loss/actor", actor_loss, n_epi)
+            self.writer.add_scalar("loss/alpha", alpha_loss, n_epi)
             
