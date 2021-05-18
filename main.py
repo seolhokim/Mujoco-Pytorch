@@ -57,6 +57,7 @@ if args.load != 'no':
     agent.load_state_dict(torch.load("./model_weights/"+args.load))
     
 score_lst = []
+state_lst = []
 
 if agent_args.on_policy == True:
     score = 0.0
@@ -66,6 +67,7 @@ if agent_args.on_policy == True:
         for t in range(agent_args.traj_length):
             if args.render:    
                 env.render()
+            state_lst.append(state_)
             mu,sigma = agent.get_action(torch.from_numpy(state).float().to(device))
             dist = torch.distributions.Normal(mu,sigma[0])
             action = dist.sample()
@@ -93,6 +95,7 @@ if agent_args.on_policy == True:
                 state_ = next_state_
 
         agent.train_net(n_epi)
+        state_rms.update(np.vstack(state_lst))
         if n_epi%args.print_interval==0 and n_epi!=0:
             print("# of episode :{}, avg score : {:.1f}".format(n_epi, sum(score_lst)/len(score_lst)))
             score_lst = []
