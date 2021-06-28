@@ -54,14 +54,14 @@ class SAC(nn.Module):
         a_log_prob = u_log_prob - torch.log(1 - torch.square(a) +1e-3)
         return a, a_log_prob.sum(-1, keepdim=True)
     
-    def q_update(self, Q, q_optimizer, states, actions, rewards, next_states, done_masks):
+    def q_update(self, Q, q_optimizer, states, actions, rewards, next_states, dones):
         ###target
         with torch.no_grad():
             next_actions, next_action_log_prob = self.get_action(next_states)
             q_1 = self.target_q_1(next_states, next_actions)
             q_2 = self.target_q_2(next_states, next_actions)
             q = torch.min(q_1,q_2)
-            v = done_masks * (q - self.alpha * next_action_log_prob)
+            v = (1 - dones) * (q - self.alpha * next_action_log_prob)
             targets = rewards + self.args.gamma * v
         
         q = Q(states, actions)
@@ -92,11 +92,11 @@ class SAC(nn.Module):
     
     def train_net(self, batch_size, n_epi):
         data = self.data.sample(shuffle = True, batch_size = batch_size)
-        states, actions, rewards, next_states, done_masks = convert_to_tensor(self.device, data['state'], data['action'], data['reward'], data['next_state'], data['done'])
+        states, actions, rewards, next_states, dones = convert_to_tensor(self.device, data['state'], data['action'], data['reward'], data['next_state'], data['done'])
 
         ###q update
-        q_1_loss = self.q_update(self.q_1, self.q_1_optimizer, states, actions, rewards, next_states, done_masks)
-        q_2_loss = self.q_update(self.q_2, self.q_2_optimizer, states, actions, rewards, next_states, done_masks)
+        q_1_loss = self.q_update(self.q_1, self.q_1_optimizer, states, actions, rewards, next_states, dones)
+        q_2_loss = self.q_update(self.q_2, self.q_2_optimizer, states, actions, rewards, next_states, dones)
 
         ### actor update
         actor_loss,prob = self.actor_update(states)

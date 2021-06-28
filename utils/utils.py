@@ -57,8 +57,7 @@ class ReplayBuffer():
         self.data['action'][idx] = transition['action']
         self.data['reward'][idx] = transition['reward']
         self.data['next_state'][idx] = transition['next_state']
-        done = transition['done']
-        self.data['done'][idx] = 0.0 if done else 1.0
+        self.data['done'][idx] = float(transition['done'])
         if self.action_prob_exist :
             self.data['log_prob'][idx] = transition['log_prob']
         
