@@ -11,7 +11,7 @@ import numpy as np
 class OUNoise:
     """Ornstein-Uhlenbeck process."""
 
-    def __init__(self, size, seed, mu=0.0, theta=0.1, sigma=.5, sigma_min = 0.05, sigma_decay=.99):
+    def __init__(self, size, seed, mu=0.0, theta=0.1, sigma=.1, sigma_min = 0.05, sigma_decay=.99):
         """Initialize parameters and noise process."""
         self.mu = mu * np.ones(size)
         self.theta = theta

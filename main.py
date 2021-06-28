@@ -8,6 +8,7 @@ import os
 
 from agents.ppo import PPO
 from agents.sac import SAC
+from agents.ddpg import DDPG
 
 from utils.utils import make_transition, Dict, RunningMeanStd
 os.makedirs('./model_weights', exist_ok=True)
@@ -45,10 +46,16 @@ action_dim = env.action_space.shape[0]
 state_dim = env.observation_space.shape[0]
 state_rms = RunningMeanStd(state_dim)
 
+
 if args.algo == 'ppo' :
     agent = PPO(writer, device, state_dim, action_dim, agent_args)
 elif args.algo == 'sac' :
     agent = SAC(writer, device, state_dim, action_dim, agent_args)
+elif args.algo == 'ddpg' :
+    from utils.noise import OUNoise
+    noise = OUNoise(action_dim,0)
+    agent = DDPG(writer, device, state_dim, action_dim, agent_args, noise)
+
     
 if (torch.cuda.is_available()) and (args.use_cuda):
     agent = agent.cuda()
@@ -113,7 +120,6 @@ else : # off policy
             action, _ = agent.get_action(torch.from_numpy(state).float().to(device))
             action = action.cpu().detach().numpy()
             next_state, reward, done, info = env.step(action)
-
             transition = make_transition(state,\
                                          action,\
                                          np.array([reward/10.0]),\
@@ -126,7 +132,7 @@ else : # off policy
 
             score += reward
             if agent.data.data_idx > agent_args.learn_start_size: 
-                agent.train_net(agent_args.batch_size, n_epi)  
+                agent.train_net(agent_args.batch_size, n_epi)
         score_lst.append(score)
         if args.tensorboard:
             writer.add_scalar("score/score", score, n_epi)
