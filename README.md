@@ -8,7 +8,7 @@
 ## Implemented Algorithm
 * PPO
 * SAC
-
+* DDPG
 ## Performance
 
 ### PPO
