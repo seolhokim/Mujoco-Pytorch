@@ -26,6 +26,7 @@ parser.add_argument("--load", type=str, default = 'no', help = 'load network nam
 parser.add_argument("--save_interval", type=int, default = 100, help = 'save interval(default: 100)')
 parser.add_argument("--print_interval", type=int, default = 1, help = 'print interval(default : 20)')
 parser.add_argument("--use_cuda", type=bool, default = True, help = 'cuda usage(default : True)')
+parser.add_argument("--reward_scaling", type=float, default = 0.1, help = 'reward scaling(default : 0.1)')
 args = parser.parse_args()
 parser = ConfigParser()
 parser.read('config.ini')
@@ -83,7 +84,7 @@ if agent_args.on_policy == True:
             next_state = np.clip((next_state_ - state_rms.mean) / (state_rms.var ** 0.5 + 1e-8), -5, 5)
             transition = make_transition(state,\
                                          action.cpu().numpy(),\
-                                         np.array([reward/10.0]),\
+                                         np.array([reward*args.reward_scaling]),\
                                          next_state,\
                                          np.array([done]),\
                                          log_prob.detach().cpu().numpy()\
@@ -122,7 +123,7 @@ else : # off policy
             next_state, reward, done, info = env.step(action)
             transition = make_transition(state,\
                                          action,\
-                                         np.array([reward/10.0]),\
+                                         np.array([reward*args.reward_scaling]),\
                                          next_state,\
                                          np.array([done])\
                                         )
