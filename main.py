@@ -82,7 +82,7 @@ if agent_args.on_policy == True:
             next_state_, reward, done, info = env.step(action.cpu().numpy())
             next_state = np.clip((next_state_ - state_rms.mean) / (state_rms.var ** 0.5 + 1e-8), -5, 5)
             transition = make_transition(state,\
-                                         action,\
+                                         action.cpu().numpy(),\
                                          np.array([reward/10.0]),\
                                          next_state,\
                                          np.array([done]),\
@@ -95,7 +95,7 @@ if agent_args.on_policy == True:
                 state = np.clip((state_ - state_rms.mean) / (state_rms.var ** 0.5 + 1e-8), -5, 5)
                 score_lst.append(score)
                 if args.tensorboard:
-                    writer.add_scalar("score", score, n_epi)
+                    writer.add_scalar("score/score", score, n_epi)
                 score = 0
             else:
                 state = next_state

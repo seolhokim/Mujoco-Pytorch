@@ -40,7 +40,7 @@ class DDPG(nn.Module):
             target_network_params.data.copy_(target_network_params.data * (1.0 - rate) + network_params.data * rate)
             
     def get_action(self,x):
-        return self.actor(x)[0] + torch.tensor(self.noise.sample()), self.actor(x)[1]
+        return self.actor(x)[0] + torch.tensor(self.noise.sample()).to(self.device), self.actor(x)[1]
     
     def put_data(self,transition):
         self.data.put_data(transition)
